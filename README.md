@@ -40,4 +40,24 @@ Estatística e Machine Learning: Scikit-learn, Statsmodels
 
 Ambiente de Desenvolvimento: VS Code integrado com Anaconda
 
-Repositório para entrega do projeto aplicado 2
+
+## 📂 Estrutura do Repositório
+
+```text
+├── dataset/            # Diretório contendo os conjuntos de dados utilizados no projeto
+├── LICENSE             # Arquivo de licença do projeto (MIT)
+└── README.md           # Documentação principal do projeto
+
+📄 Licença
+Este projeto está sob a licença MIT. Consulte o arquivo LICENSE para mais detalhes.
+
+
+📬 Contato
+Se tiver dúvidas ou sugestões, entre em contato:
+
+📧🐙 GitHub & Email:
+
+gus.ribeirolima@hotmail.com - Gustavo Ribeiro
+juanmartins07.jj@gmail.com - Juan Martins
+samyacsdev@gmail.com - Samya
+
