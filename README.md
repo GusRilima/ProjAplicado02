@@ -1,5 +1,6 @@
 # Projeto Aplicado II – Banco de dados – 2026.1
-##🏦 Detecção de Fraudes em Transações Bancárias
+
+🏦 Detecção de Fraudes em Transações Bancárias
 
 📖 Sobre o Projeto
 
