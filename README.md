@@ -59,6 +59,8 @@ Se tiver dúvidas ou sugestões, entre em contato:
 📧🐙 GitHub & Email:
 
 gus.ribeirolima@hotmail.com - Gustavo Ribeiro
+
 juanmartins07.jj@gmail.com - Juan Martins
+
 samyacsdev@gmail.com - Samya
 
