@@ -9,15 +9,29 @@ import seaborn as sns
 from scipy import stats
 from sklearn.metrics import accuracy_score
 
+# ============================================================
+# ETAPA 1 - LEITURA DA BASE
+# ============================================================
+# O dataset é carregado diretamente do repositório do projeto.
+# Essa etapa inicia a inspeção geral da base.
 url = "https://raw.githubusercontent.com/GusRilima/ProjAplicado02/main/dataset/bank_transactions_data_2.csv"
 df = pd.read_csv(url)
 
+# ============================================================
+# ETAPA 2 - PADRONIZAÇÃO E TRATAMENTO INICIAL
+# ============================================================
+# Aqui os nomes das colunas são ajustados para facilitar o uso
+# no Python, substituindo espaços por underline.
 df.columns = [c.strip().replace(" ", "_") for c in df.columns]
 
+# Conversão das colunas de data para formato datetime.
+# Isso permite criar variáveis temporais derivadas depois.
 for col in ["TransactionDate", "PreviousTransactionDate"]:
     if col in df.columns:
         df[col] = pd.to_datetime(df[col], errors="coerce")
 
+# Criação da variável com o intervalo, em minutos,
+# entre a transação atual e a transação anterior.
 if {"TransactionDate", "PreviousTransactionDate"}.issubset(df.columns):
     df["MinutesSincePrevious"] = (
         df["TransactionDate"] - df["PreviousTransactionDate"]
@@ -25,66 +39,102 @@ if {"TransactionDate", "PreviousTransactionDate"}.issubset(df.columns):
 else:
     df["MinutesSincePrevious"] = np.nan
 
+# Extração de componentes temporais da data principal.
+# Essas variáveis ajudam a analisar o comportamento ao longo do tempo.
 if "TransactionDate" in df.columns:
     df["TransactionHour"] = df["TransactionDate"].dt.hour
     df["TransactionMonth"] = df["TransactionDate"].dt.month
-    df["IsNightTransaction"] = df["TransactionHour"].between(0, 5) | df["TransactionHour"].between(22, 23)
-    df["IsNightTransaction"] = df["IsNightTransaction"].astype(int)
+
+    # Identificação de transações noturnas.
+    # Foi considerado horário noturno entre 22h e 5h.
+    df["IsNightTransaction"] = (
+        df["TransactionHour"].between(0, 5) | df["TransactionHour"].between(22, 23)
+    ).astype(int)
 else:
     df["TransactionHour"] = np.nan
     df["TransactionMonth"] = np.nan
     df["IsNightTransaction"] = 0
 
+# Preenchimento simples de ausências criadas nas variáveis derivadas.
+# A mediana foi usada por ser menos sensível a valores extremos.
 for col in ["MinutesSincePrevious", "TransactionHour", "TransactionMonth"]:
     if col in df.columns:
         df[col] = df[col].fillna(df[col].median())
 
+# ============================================================
+# ETAPA 3 - INSPEÇÃO INICIAL DA BASE
+# ============================================================
+# Exibição de informações básicas para entender a estrutura,
+# qualidade e composição inicial do conjunto de dados.
 print("=" * 70)
-print("DIMENSÕES DA BASE")
+print("ETAPA 1 - LEITURA E INSPEÇÃO INICIAL")
+print("Objetivo: entender a estrutura da base e verificar sua qualidade.")
+print("=" * 70)
+
+print("\nDimensões da base:")
 print(df.shape)
 
-print("\nPRIMEIRAS LINHAS")
+print("\nPrimeiras linhas:")
 print(df.head())
 
-print("\nTIPOS DE DADOS")
+print("\nTipos de dados:")
 print(df.dtypes)
 
-print("\nVALORES AUSENTES")
+print("\nValores ausentes por coluna:")
 print(df.isnull().sum())
 
-print("\nDUPLICATAS")
+print("\nDuplicatas:")
 print(df.duplicated().sum())
 
-print("\nESTATÍSTICAS DESCRITIVAS - NUMÉRICAS")
+print("\nEstatísticas descritivas - numéricas")
 print(df.describe(include=[np.number]).T)
 
-print("\nESTATÍSTICAS DESCRITIVAS - CATEGÓRICAS")
+print("\nEstatísticas descritivas - categóricas")
 print(df.describe(include=["object"]).T)
 
-amount = df["TransactionAmount"].dropna()
-media = amount.mean()
-desvio = amount.std(ddof=1)
-n = amount.shape[0]
+# ============================================================
+# ETAPA 4 - ANÁLISE ESTATÍSTICA
+# ============================================================
+# Esta etapa aplica medidas inferenciais simples para complementar
+# a AED e tornar a análise mais consistente.
+print("\n" + "=" * 70)
+print("ETAPA 2 - ANÁLISE ESTATÍSTICA")
+print("Objetivo: resumir o comportamento da base e verificar relações iniciais.")
+print("=" * 70)
 
-if n > 1:
-    ic = stats.t.interval(
-        confidence=0.95,
-        df=n - 1,
-        loc=media,
-        scale=desvio / np.sqrt(n)
-    )
-    print("\nINTERVALO DE CONFIANÇA (95%) PARA TransactionAmount")
-    print(f"Média: {media:.2f}")
-    print(f"IC 95%: ({ic[0]:.2f}, {ic[1]:.2f})")
+# Intervalo de confiança para a média do valor das transações.
+# Isso fornece uma faixa provável para a média populacional.
+if "TransactionAmount" in df.columns:
+    amount = df["TransactionAmount"].dropna()
+    media = amount.mean()
+    desvio = amount.std(ddof=1)
+    n = amount.shape[0]
 
+    if n > 1:
+        ic = stats.t.interval(
+            confidence=0.95,
+            df=n - 1,
+            loc=media,
+            scale=desvio / np.sqrt(n)
+        )
+        print("\nIntervalo de confiança (95%) para TransactionAmount")
+        print("Explicação: estima uma faixa provável para a média do valor das transações.")
+        print(f"Média: {media:.2f}")
+        print(f"IC 95%: ({ic[0]:.2f}, {ic[1]:.2f})")
+
+# Correlação de Pearson entre valor da transação e saldo.
+# Essa medida indica o grau de associação linear entre as duas variáveis.
 if {"TransactionAmount", "AccountBalance"}.issubset(df.columns):
     corr_df = df[["TransactionAmount", "AccountBalance"]].dropna()
     if len(corr_df) > 1:
         r, p = stats.pearsonr(corr_df["TransactionAmount"], corr_df["AccountBalance"])
-        print("\nCORRELAÇÃO ENTRE TransactionAmount E AccountBalance")
+        print("\nCorrelação entre TransactionAmount e AccountBalance")
+        print("Explicação: mede a intensidade da relação linear entre valor da transação e saldo.")
         print(f"Correlação de Pearson: {r:.4f}")
         print(f"p-valor: {p:.4f}")
 
+# ANOVA para comparar o valor médio das transações entre canais.
+# A ideia é verificar se o canal influencia o comportamento do valor.
 if {"Channel", "TransactionAmount"}.issubset(df.columns):
     grupos = [
         grupo["TransactionAmount"].dropna().values
@@ -93,12 +143,24 @@ if {"Channel", "TransactionAmount"}.issubset(df.columns):
     ]
     if len(grupos) >= 2:
         f_stat, p_val = stats.f_oneway(*grupos)
-        print("\nANOVA - TransactionAmount POR Channel")
+        print("\nANOVA - TransactionAmount por Channel")
+        print("Explicação: verifica se a média do valor das transações muda entre os canais.")
         print(f"Estatística F: {f_stat:.4f}")
         print(f"p-valor: {p_val:.4f}")
 
+# ============================================================
+# ETAPA 5 - VISUALIZAÇÕES DA AED
+# ============================================================
+# Os gráficos apoiam a interpretação visual de distribuição,
+# frequência, dispersão e correlação.
+print("\n" + "=" * 70)
+print("ETAPA 3 - VISUALIZAÇÕES")
+print("Objetivo: identificar padrões, dispersão e possíveis comportamentos atípicos.")
+print("=" * 70)
+
 sns.set(style="whitegrid")
 
+# Histogramas para variáveis numéricas principais.
 for col in ["TransactionAmount", "AccountBalance", "LoginAttempts"]:
     if col in df.columns:
         plt.figure(figsize=(8, 4))
@@ -107,6 +169,7 @@ for col in ["TransactionAmount", "AccountBalance", "LoginAttempts"]:
         plt.tight_layout()
         plt.show()
 
+# Boxplots para observar dispersão e valores extremos.
 for col in ["TransactionAmount", "MinutesSincePrevious"]:
     if col in df.columns:
         plt.figure(figsize=(8, 3))
@@ -115,6 +178,7 @@ for col in ["TransactionAmount", "MinutesSincePrevious"]:
         plt.tight_layout()
         plt.show()
 
+# Gráficos de frequência para variáveis categóricas.
 for col in ["TransactionType", "Channel"]:
     if col in df.columns:
         plt.figure(figsize=(9, 4))
@@ -125,6 +189,7 @@ for col in ["TransactionType", "Channel"]:
         plt.tight_layout()
         plt.show()
 
+# Volume de transações por mês.
 if "TransactionMonth" in df.columns:
     plt.figure(figsize=(8, 4))
     df["TransactionMonth"].value_counts().sort_index().plot(kind="bar")
@@ -134,6 +199,7 @@ if "TransactionMonth" in df.columns:
     plt.tight_layout()
     plt.show()
 
+# Dispersão entre saldo e valor da transação.
 if {"TransactionAmount", "AccountBalance"}.issubset(df.columns):
     plt.figure(figsize=(7, 5))
     sns.scatterplot(data=df, x="AccountBalance", y="TransactionAmount")
@@ -141,6 +207,7 @@ if {"TransactionAmount", "AccountBalance"}.issubset(df.columns):
     plt.tight_layout()
     plt.show()
 
+# Matriz de correlação para variáveis numéricas relevantes.
 corr_cols = [
     "TransactionAmount",
     "AccountBalance",
@@ -159,19 +226,40 @@ if len(corr_cols) > 1:
     plt.tight_layout()
     plt.show()
 
-df["AmountZScore"] = np.abs(stats.zscore(df["TransactionAmount"], nan_policy="omit"))
-df["AmountZScore"] = pd.Series(df["AmountZScore"], index=df.index).fillna(0)
+# ============================================================
+# ETAPA 6 - SCORE DE RISCO EXPLORATÓRIO
+# ============================================================
+# Como não existe rótulo real de fraude, o script cria um
+# score simples para destacar transações potencialmente atípicas.
+print("\n" + "=" * 70)
+print("ETAPA 4 - SCORE DE RISCO EXPLORATÓRIO")
+print("Objetivo: sinalizar transações potencialmente atípicas sem usar rótulo real de fraude.")
+print("=" * 70)
 
+# Z-score do valor da transação.
+# Quanto maior o desvio em relação ao comportamento médio,
+# maior a chance de a operação ser considerada atípica.
+if "TransactionAmount" in df.columns:
+    df["AmountZScore"] = np.abs(stats.zscore(df["TransactionAmount"], nan_policy="omit"))
+    df["AmountZScore"] = pd.Series(df["AmountZScore"], index=df.index).fillna(0)
+else:
+    df["AmountZScore"] = 0
+
+# Identificação de operações online.
 online_flag = pd.Series(False, index=df.index)
 if "Channel" in df.columns:
     online_flag = df["Channel"].astype(str).str.lower().str.contains("online", na=False)
 
+# Indicador de referência exploratório.
+# Ele serve apenas como comparação simples para a avaliação final.
 df["ReferenceFlag"] = 0
 df.loc[df["AmountZScore"] >= 2, "ReferenceFlag"] = 1
 
 if "LoginAttempts" in df.columns:
     df.loc[df["LoginAttempts"] >= 3, "ReferenceFlag"] = 1
 
+# Construção do score de risco.
+# Cada critério soma 1 ponto ao risco da transação.
 df["RiskScore"] = 0
 df["RiskScore"] += (df["AmountZScore"] >= 2).astype(int)
 
@@ -183,17 +271,24 @@ if "MinutesSincePrevious" in df.columns:
 
 df["RiskScore"] += ((df["IsNightTransaction"] == 1) & online_flag).astype(int)
 
+# Transformação do score em indicador binário.
+# Transações com 2 ou mais sinais passam a ser marcadas como risco.
 df["RiskFlag"] = (df["RiskScore"] >= 2).astype(int)
 
+# Avaliação exploratória do indicador.
+# Como não há fraude confirmada, trata-se apenas de uma comparação
+# com a referência simples criada anteriormente.
 proxy_accuracy = accuracy_score(df["ReferenceFlag"], df["RiskFlag"])
 
-print("\nAVALIAÇÃO EXPLORATÓRIA")
+print("\nAvaliação exploratória")
+print("Explicação: como não há rótulo real de fraude, a comparação é feita com uma referência simples.")
 print(f"Acurácia proxy: {proxy_accuracy:.4f}")
-print("Essa medida é apenas exploratória, pois a base não possui rótulo real de fraude.")
+print("Essa medida é apenas exploratória.")
 
+# Exibição das transações com maior score de risco.
 top_risco = df.sort_values("RiskScore", ascending=False).head(20)
 
-print("\nTOP 20 TRANSAÇÕES COM MAIOR SCORE DE RISCO")
+print("\nTop 20 transações com maior score de risco")
 cols_show = [
     "TransactionAmount",
     "AccountBalance",
@@ -209,15 +304,19 @@ cols_show = [
 cols_show = [c for c in cols_show if c in top_risco.columns]
 print(top_risco[cols_show])
 
+# Visualização final da distribuição do indicador de risco.
 plt.figure(figsize=(8, 4))
 sns.countplot(data=df, x="RiskFlag")
 plt.title("Distribuição do indicador de risco")
 plt.tight_layout()
 plt.show()
 
+# ============================================================
+# ETAPA 7 - CONCLUSÃO
+# ============================================================
+# Resumo textual do que foi feito ao longo do script.
 print("\nCONCLUSÃO RESUMIDA")
-print("1. A base foi carregada e inspecionada.")
-print("2. Foram criadas variáveis temporais derivadas.")
-print("3. A AED analisou distribuições, frequências e correlações.")
-print("4. O script inclui intervalo de confiança, correlação e ANOVA.")
-print("5. O resultado final é um score de risco exploratório para cada transação.")
+print("1. A base foi carregada, inspecionada e tratada nas variáveis temporais.")
+print("2. A AED analisou distribuições, frequências e correlações.")
+print("3. O script inclui medidas de estatística inferencial compatíveis com a proposta da entrega.")
+print("4. O resultado final é um score de risco exploratório para apoiar a interpretação dos dados.")
